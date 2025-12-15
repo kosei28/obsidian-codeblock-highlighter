@@ -25,7 +25,7 @@ jobs:
         run: bun run build
 
       - name: Zip artifacts
-        run: zip -r codeblock-highlighter.zip manifest.json main.js
+        run: zip -r codeblock-highlighter.zip manifest.json main.js styles.css
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -33,5 +33,6 @@ jobs:
           files: |
             manifest.json
             main.js
+            styles.css
             codeblock-highlighter.zip
           token: ${{ secrets.GITHUB_TOKEN }}
