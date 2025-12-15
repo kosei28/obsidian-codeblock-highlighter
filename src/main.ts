@@ -61,7 +61,16 @@ export default class ShikiHighlightPlugin extends Plugin {
         const newPre = div.querySelector('pre');
 
         if (newPre) {
-          pre.replaceWith(newPre);
+          for (const cls of Array.from(newPre.classList)) {
+            pre.classList.add(cls);
+          }
+
+          pre.style.cssText += newPre.style.cssText;
+
+          const newCode = newPre.querySelector('code');
+          if (newCode) {
+            codeElement.replaceWith(newCode);
+          }
         }
       });
     });
@@ -127,6 +136,11 @@ export default class ShikiHighlightPlugin extends Plugin {
         .code-block-flair {
           color: var(--shiki-fg) !important;
         }
+      }
+
+      /* Reading View */
+      pre button.copy-code-button {
+        color: var(--shiki-fg) !important;
       }
     `;
   }
