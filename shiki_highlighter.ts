@@ -1,63 +1,63 @@
-import { createHighlighter, Highlighter, type ThemeInput } from 'shiki';
+import { type BundledLanguage, createHighlighter, type Highlighter, type ThemeInput } from 'shiki';
 import { themes } from 'tm-themes';
 
 export class ShikiHighlighter {
-    private highlighter: Highlighter | null = null;
-    private currentTheme: string = 'github-dark';
+  private highlighter: Highlighter | null = null;
+  private currentTheme: string = 'github-dark';
 
-    async initialize(theme: string) {
-        this.currentTheme = theme;
-        this.highlighter = await createHighlighter({
-            themes: [theme as ThemeInput],
-            langs: ['javascript', 'typescript', 'css', 'html', 'json', 'markdown'] 
-        });
-    }
+  async initialize(theme: string) {
+    this.currentTheme = theme;
+    this.highlighter = await createHighlighter({
+      themes: [theme as ThemeInput],
+      langs: ['javascript', 'typescript', 'css', 'html', 'json', 'markdown'],
+    });
+  }
 
-    async loadTheme(theme: string) {
-        if (!this.highlighter) return;
-        
-        if (!this.highlighter.getLoadedThemes().includes(theme)) {
-             await this.highlighter.loadTheme(theme as ThemeInput);
-        }
-        this.currentTheme = theme;
-    }
+  async loadTheme(theme: string) {
+    if (!this.highlighter) return;
 
-    getThemeList(): string[] {
-        return themes.map(t => t.name);
+    if (!this.highlighter.getLoadedThemes().includes(theme)) {
+      await this.highlighter.loadTheme(theme as ThemeInput);
     }
+    this.currentTheme = theme;
+  }
 
-    highlight(code: string, lang: string) {
-        if (!this.highlighter) return [];
-        
-        try {
-            return this.highlighter.codeToTokens(code, {
-                lang: lang as any,
-                theme: this.currentTheme
-            });
-        } catch (e) {
-            console.warn(`[Shiki] Failed to highlight ${lang}:`, e);
-            return []; 
-        }
-    }
+  getThemeList(): string[] {
+    return themes.map((t) => t.name);
+  }
 
-    highlightHtml(code: string, lang: string): string {
-        if (!this.highlighter) return code;
-        
-        try {
-            return this.highlighter.codeToHtml(code, {
-                lang: lang as any,
-                theme: this.currentTheme
-            });
-        } catch (e) {
-            console.warn(`[Shiki] Failed to highlight HTML ${lang}:`, e);
-            return code;
-        }
+  highlight(code: string, lang: string) {
+    if (!this.highlighter) return [];
+
+    try {
+      return this.highlighter.codeToTokens(code, {
+        lang: lang as BundledLanguage,
+        theme: this.currentTheme,
+      });
+    } catch (e) {
+      console.warn(`[Shiki] Failed to highlight ${lang}:`, e);
+      return [];
     }
-    
-    async loadLanguage(lang: string) {
-        if (!this.highlighter) return;
-        if (!this.highlighter.getLoadedLanguages().includes(lang)) {
-             await this.highlighter.loadLanguage(lang as any);
-        }
+  }
+
+  highlightHtml(code: string, lang: string): string {
+    if (!this.highlighter) return code;
+
+    try {
+      return this.highlighter.codeToHtml(code, {
+        lang: lang as BundledLanguage,
+        theme: this.currentTheme,
+      });
+    } catch (e) {
+      console.warn(`[Shiki] Failed to highlight HTML ${lang}:`, e);
+      return code;
     }
+  }
+
+  async loadLanguage(lang: string) {
+    if (!this.highlighter) return;
+    if (!this.highlighter.getLoadedLanguages().includes(lang)) {
+      await this.highlighter.loadLanguage(lang as BundledLanguage);
+    }
+  }
 }
