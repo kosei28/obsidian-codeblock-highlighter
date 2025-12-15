@@ -19,7 +19,6 @@ export default class ShikiHighlightPlugin extends Plugin {
   private styleEl: HTMLStyleElement;
 
   async onload() {
-    console.log('Loading Shiki Highlighter Plugin');
     await this.loadSettings();
 
     this.highlighter = new ShikiHighlighter(this.settings.theme, this);
@@ -30,7 +29,6 @@ export default class ShikiHighlightPlugin extends Plugin {
 
     try {
       await this.highlighter.initialize();
-      console.log('Shiki initialized with theme:', this.settings.theme);
       this.updateThemeStyles();
     } catch (e) {
       console.error('Failed to initialize Shiki:', e);
@@ -139,8 +137,6 @@ class ShikiHighlightSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-
-    containerEl.createEl('h2', { text: 'Shiki Highlighter Settings' });
 
     const themes = bundledThemesInfo;
     const themeOptions: Record<string, string> = {};
