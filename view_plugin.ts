@@ -1,5 +1,5 @@
-import { ViewPlugin, DecorationSet, Decoration, ViewUpdate, EditorView, WidgetType } from '@codemirror/view';
-import { RangeSetBuilder, StateEffect } from '@codemirror/state';
+import { ViewPlugin, DecorationSet, Decoration, ViewUpdate, EditorView } from '@codemirror/view';
+import { StateEffect, Range } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import ShikiHighlightPlugin from './main';
 
@@ -18,93 +18,125 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) => ViewPlugi
 
     constructor(view: EditorView) {
         this.decorations = Decoration.none;
-        this.updateDecorations(view);
+        // Initial highlighting of the entire document or visible range
+        // For safety/starting point, we use visible ranges, but expanded to full document scan
+        // if we want to be sure. However, lazy loading key.
+        // Let's start with visible ranges.
+        this.updateDecorations(view, view.visibleRanges);
     }
 
     update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.focusChanged || update.transactions.some(tr => tr.effects.some(e => e.is(themeChangeEffect)))) {
-            this.updateDecorations(update.view);
+        // Step 1: Map existing decorations to new positions
+        this.decorations = this.decorations.map(update.changes);
+
+        // Step 2: Determine which ranges need updates
+        // We update if the document changed, viewport changed, or theme changed
+        if (update.docChanged || update.viewportChanged || update.transactions.some(tr => tr.effects.some(e => e.is(themeChangeEffect)))) {
+            
+            const rangesToUpdate: {from: number, to: number}[] = [];
+
+            if (update.docChanged) {
+                // If doc changed, update the changed ranges
+                update.changes.iterChanges((fromA, toA, fromB, toB) => {
+                    rangesToUpdate.push({ from: fromB, to: toB });
+                });
+            }
+
+            // Always ensure visible ranges are up to date (handling lazy loading or scrolling)
+            if (update.viewportChanged || !update.docChanged) {
+                 rangesToUpdate.push(...update.view.visibleRanges);
+            }
+
+            // Highlighting
+            if (rangesToUpdate.length > 0) {
+                this.updateDecorations(update.view, rangesToUpdate);
+            }
         }
     }
 
-    updateDecorations(view: EditorView) {
+    updateDecorations(view: EditorView, ranges: readonly {from: number, to: number}[]) {
         if (!plugin.highlighter) {
             this.decorations = Decoration.none;
             return;
         }
 
-        const builder = new RangeSetBuilder<Decoration>();
-        const ranges = view.visibleRanges;
+        const add: Range<Decoration>[] = [];
+        const uniqueBlocks = new Set<string>(); // To prevent duplicate work if ranges overlap
+        
+        // Define a filter to remove old decorations in the ranges we are about to update.
+        // We remove any decoration that starts in the range we are scanning.
+        const filter = (from: number, to: number) => {
+            for (const range of ranges) {
+                if (from >= range.from && from <= range.to) {
+                    return false; // Remove
+                }
+            }
+            return true; // Keep
+        };
+
         const doc = view.state.doc;
 
-        // We need to buffer code blocks to pass to Shiki
-        // Simple strategy:
-        // 1. Iterate tree to find ranges of code blocks (start/end lines)
-        // 2. Extract content, highlight
-        // 3. Map tokens back to document positions
-        
-        // Given Obsidian's structure, we might encounter multiple nodes per line.
-        // We'll process by scanning line-by-line using the syntax tree to confirm it's a codeblock.
-        
-        for (const {from, to} of ranges) {
-            // Expand range to cover full lines to ensure we capture block boundaries if they are just outside
-            const startLine = doc.lineAt(from);
-            const endLine = doc.lineAt(to);
-            
-            let inBlock = false;
-            let blockStartPos = -1;
-            let blockLang = '';
-            let blockContentStart = -1;
-            let blockContentEnd = -1;
-            
-            // Using internal iteration might be tricky with `iterate`.
-            // Let's use a cursor for more control if needed, but iterate is fine if we respect order.
-            
-            // NOTE: This logic assumes we process "CodeBlock" or similar structure.
-            // If traversing strictly by nodes:
+        // Iterate through all requested ranges
+        for (const range of ranges) {
             syntaxTree(view.state).iterate({
-                from: startLine.from,
-                to: endLine.to,
+                from: range.from,
+                to: range.to,
                 enter: (node) => {
                     const name = node.name;
-                    // Standard Markdown or Obsidian HyperMD
-                    if (name.includes('HyperMD-codeblock-begin') || name.includes('formatting-code-block-begin')) {
-                        inBlock = true;
-                        blockStartPos = node.from;
-                        // Extract language
-                        const line = doc.lineAt(node.from);
-                        const text = line.text;
-                        const match = text.match(/^`{3,}(\S*)/);
-                        blockLang = match ? match[1] : '';
-                        blockContentStart = node.to; // Tentative, often includes newline
-                    }
                     
-                    if (name.includes('HyperMD-codeblock-end') || name.includes('formatting-code-block-end')) {
-                        if (inBlock) {
-                            blockContentEnd = node.from;
-                            // Highlight the block
-                            this.highlightBlock(view, builder, blockLang, blockContentStart, blockContentEnd);
-                            inBlock = false;
+                    if (name.includes('HyperMD-codeblock-begin') || name.includes('formatting-code-block-begin')) {
+                        const startLine = doc.lineAt(node.from);
+                        // Identify block by start position to deduplicate
+                        if (uniqueBlocks.has(startLine.from.toString())) return;
+                        uniqueBlocks.add(startLine.from.toString());
+
+                        const match = startLine.text.match(/^`{3,}(\S*)/);
+                        const lang = match ? match[1] : '';
+                        
+                        const blockContentStart = startLine.to + 1; // Start of next line
+                        if (blockContentStart >= doc.length) return;
+
+                        let blockContentEnd = -1;
+                        let lineNo = startLine.number + 1;
+                        
+                        // Scan forward lines to find end
+                        while(lineNo <= doc.lines) {
+                           const l = doc.line(lineNo);
+                           if (l.text.trim().startsWith('```')) {
+                               blockContentEnd = l.from;
+                               break;
+                           }
+                           lineNo++;
+                        }
+                        
+                        // If no end found, highlight until end of doc (robustness)
+                        if (blockContentEnd === -1) {
+                            blockContentEnd = doc.length;
+                        }
+
+                        if (blockContentEnd > blockContentStart) {
+                            this.highlightBlock(view, add, lang, blockContentStart, blockContentEnd);
                         }
                     }
                 }
             });
         }
-        this.decorations = builder.finish();
+        
+        // Apply update
+        this.decorations = this.decorations.update({
+             filter,
+             add,
+             sort: true // Ensure sorted ranges
+        });
     }
 
-    highlightBlock(view: EditorView, builder: RangeSetBuilder<Decoration>, lang: string, from: number, to: number) {
+    highlightBlock(view: EditorView, add: Range<Decoration>[], lang: string, from: number, to: number) {
         if (!plugin.highlighter || from >= to) return;
         
         const doc = view.state.doc;
         const code = doc.sliceString(from, to);
         
-        // Trim leading newline if present (Obsidian often puts content on next line)
-        // Adjust 'from' accordingly
-        // Shiki expects pure code.
-        
         const result = plugin.highlighter.highlight(code, lang);
-        // shiki v1 codeToTokens returns an object with 'tokens' property
         const lines = (result as any).tokens || result; 
         
         let currentPos = from;
@@ -113,11 +145,8 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) => ViewPlugi
             for (const token of line) {
                 if (!token.content) continue;
                 
-                // token.content is the string. We assume it matches the doc exactly.
-                // We create a decoration for this range.
                 const tokenLen = token.content.length;
                 
-                // Style construction
                 let style = `color: ${token.color};`;
                 if (token.fontStyle) {
                     if (token.fontStyle & FONT_STYLE.ITALIC) style += 'font-style: italic;';
@@ -125,36 +154,17 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) => ViewPlugi
                      if (token.fontStyle & FONT_STYLE.UNDERLINE) style += 'text-decoration: underline;';
                 }
 
-                // Add decoration
-                // Ensure we don't overlap or go out of bounds?
-                // RangeSetBuilder requires generic sorting.
-                // We are iterating sequentially, so it should be fine.
-                try {
-                    builder.add(
-                        currentPos,
-                        currentPos + tokenLen,
-                        Decoration.mark({
-                            attributes: { style },
-                            class: 'shiki-token'
-                        })
-                    );
-                } catch (e) {
-                    // Ignore overlap errors
-                }
+                add.push(
+                    Decoration.mark({
+                        attributes: { style },
+                        class: 'shiki-token'
+                    }).range(currentPos, currentPos + tokenLen)
+                );
                 
                 currentPos += tokenLen;
             }
-            // Shiki generic line break handling:
-            // The tokens list usually doesn't contain the newline characters themselves?
-            // "tokens is 2D array: line -> tokens".
-            // We need to account for the newline in 'currentPos'.
-            // Check if we need to advance for newline.
-            // A simple way: currentPos++?
-            // Depends on if code[currentPos] is \n.
-            // Shiki splits by lines.
             
-            // Check next char in doc
-             if (currentPos < to && doc.sliceString(currentPos, currentPos + 1) === '\n') {
+            if (currentPos < to && doc.sliceString(currentPos, currentPos + 1) === '\n') {
                 currentPos++;
             }
         }
