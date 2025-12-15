@@ -3,8 +3,6 @@ import { type Range, StateEffect } from '@codemirror/state';
 import { Decoration, type DecorationSet, type EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import type ShikiHighlightPlugin from './main';
 
-// Helper to check for bold/italic from Shiki fontstyle
-// Shiki FontStyle: 1 = Italic, 2 = Bold, 4 = Underline
 const FONT_STYLE = {
   ITALIC: 1,
   BOLD: 2,
@@ -20,19 +18,12 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) =>
 
       constructor(view: EditorView) {
         this.decorations = Decoration.none;
-        // Initial highlighting of the entire document or visible range
-        // For safety/starting point, we use visible ranges, but expanded to full document scan
-        // if we want to be sure. However, lazy loading key.
-        // Let's start with visible ranges.
         this.updateDecorations(view, view.visibleRanges);
       }
 
       update(update: ViewUpdate) {
-        // Step 1: Map existing decorations to new positions
         this.decorations = this.decorations.map(update.changes);
 
-        // Step 2: Determine which ranges need updates
-        // We update if the document changed, viewport changed, or theme changed
         if (
           update.docChanged ||
           update.viewportChanged ||
@@ -41,47 +32,41 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) =>
           const rangesToUpdate: { from: number; to: number }[] = [];
 
           if (update.docChanged) {
-            // If doc changed, update the changed ranges
             update.changes.iterChanges((_fromA, _toA, fromB, toB) => {
               rangesToUpdate.push({ from: fromB, to: toB });
             });
           }
 
-          // Always ensure visible ranges are up to date (handling lazy loading or scrolling)
           if (update.viewportChanged || !update.docChanged) {
             rangesToUpdate.push(...update.view.visibleRanges);
           }
 
-          // Highlighting
           if (rangesToUpdate.length > 0) {
             this.updateDecorations(update.view, rangesToUpdate);
           }
         }
       }
 
-      updateDecorations(view: EditorView, ranges: readonly { from: number; to: number }[]) {
+      private updateDecorations(view: EditorView, ranges: readonly { from: number; to: number }[]) {
         if (!plugin.highlighter) {
           this.decorations = Decoration.none;
           return;
         }
 
         const add: Range<Decoration>[] = [];
-        const uniqueBlocks = new Set<string>(); // To prevent duplicate work if ranges overlap
+        const uniqueBlocks = new Set<string>();
 
-        // Define a filter to remove old decorations in the ranges we are about to update.
-        // We remove any decoration that starts in the range we are scanning.
-        const filter = (from: number, _to: number) => {
+        const filter = (from: number) => {
           for (const range of ranges) {
             if (from >= range.from && from <= range.to) {
-              return false; // Remove
+              return false;
             }
           }
-          return true; // Keep
+          return true;
         };
 
         const doc = view.state.doc;
 
-        // Iterate through all requested ranges
         for (const range of ranges) {
           syntaxTree(view.state).iterate({
             from: range.from,
@@ -91,30 +76,28 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) =>
 
               if (name.includes('HyperMD-codeblock-begin') || name.includes('formatting-code-block-begin')) {
                 const startLine = doc.lineAt(node.from);
-                // Identify block by start position to deduplicate
+
                 if (uniqueBlocks.has(startLine.from.toString())) return;
                 uniqueBlocks.add(startLine.from.toString());
 
                 const match = startLine.text.match(/^`{3,}(\S*)/);
                 const lang = match ? match[1] : '';
 
-                const blockContentStart = startLine.to + 1; // Start of next line
+                const blockContentStart = startLine.to + 1;
                 if (blockContentStart >= doc.length) return;
 
                 let blockContentEnd = -1;
                 let lineNo = startLine.number + 1;
 
-                // Scan forward lines to find end
                 while (lineNo <= doc.lines) {
-                  const l = doc.line(lineNo);
-                  if (l.text.trim().startsWith('```')) {
-                    blockContentEnd = l.from;
+                  const line = doc.line(lineNo);
+                  if (line.text.trim().startsWith('```')) {
+                    blockContentEnd = line.from;
                     break;
                   }
                   lineNo++;
                 }
 
-                // If no end found, highlight until end of doc (robustness)
                 if (blockContentEnd === -1) {
                   blockContentEnd = doc.length;
                 }
@@ -127,15 +110,20 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) =>
           });
         }
 
-        // Apply update
         this.decorations = this.decorations.update({
           filter,
           add,
-          sort: true, // Ensure sorted ranges
+          sort: true,
         });
       }
 
-      highlightBlock(view: EditorView, add: Range<Decoration>[], lang: string, from: number, to: number) {
+      private highlightBlock(
+        view: EditorView,
+        decorations: Range<Decoration>[],
+        lang: string,
+        from: number,
+        to: number
+      ) {
         if (!plugin.highlighter || from >= to) return;
 
         const doc = view.state.doc;
@@ -158,7 +146,7 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) =>
               if (token.fontStyle & FONT_STYLE.UNDERLINE) style += 'text-decoration: underline;';
             }
 
-            add.push(
+            decorations.push(
               Decoration.mark({
                 attributes: { style },
                 class: 'shiki-token',

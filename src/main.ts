@@ -4,19 +4,19 @@ import { bundledThemesInfo } from 'shiki';
 import { ShikiHighlighter } from './shiki_highlighter';
 import { createShikiViewPlugin, themeChangeEffect } from './view_plugin';
 
-interface ShikiHighlightSettings {
+type ShikiHighlightSettings = {
   theme: string;
-}
+};
 
 const DEFAULT_SETTINGS: ShikiHighlightSettings = {
-  theme: 'catppuccin-mocha', // Modern default
+  theme: 'catppuccin-mocha',
 };
 
 export default class ShikiHighlightPlugin extends Plugin {
   settings: ShikiHighlightSettings;
   highlighter: ShikiHighlighter;
 
-  styleEl: HTMLStyleElement;
+  private styleEl: HTMLStyleElement;
 
   async onload() {
     console.log('Loading Shiki Highlighter Plugin');
@@ -28,7 +28,6 @@ export default class ShikiHighlightPlugin extends Plugin {
     this.styleEl.id = 'shiki-highlight-styles';
     document.head.appendChild(this.styleEl);
 
-    // Notify user if initialization takes time
     try {
       await this.highlighter.initialize();
       console.log('Shiki initialized with theme:', this.settings.theme);
@@ -40,13 +39,13 @@ export default class ShikiHighlightPlugin extends Plugin {
 
     this.registerEditorExtension(createShikiViewPlugin(this));
 
-    this.registerMarkdownPostProcessor((el, _ctx) => {
+    this.registerMarkdownPostProcessor((el) => {
       el.querySelectorAll('pre > code').forEach(async (codeElement) => {
         const pre = codeElement.parentElement as HTMLElement;
         if (!pre || pre.classList.contains('shiki')) return;
 
         const classes = Array.from(codeElement.classList);
-        const langClass = classes.find((c) => c.startsWith('language-'));
+        const langClass = classes.find((className) => className.startsWith('language-'));
         const lang = langClass ? langClass.replace('language-', '') : 'text';
 
         const code = codeElement.textContent || '';
@@ -71,13 +70,12 @@ export default class ShikiHighlightPlugin extends Plugin {
     }
   }
 
-  async loadSettings() {
+  private async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
-    // Reload highlighter theme when settings are saved
     if (this.highlighter) {
       await this.highlighter.loadTheme(this.settings.theme);
       this.updateThemeStyles();
@@ -87,19 +85,17 @@ export default class ShikiHighlightPlugin extends Plugin {
   }
 
   refreshViews() {
-    // Trigger refresh in all editor views
     this.app.workspace.iterateAllLeaves((leaf) => {
       if (leaf.view instanceof MarkdownView) {
         const view = leaf.view;
         const editor = view.editor;
-        // Obsidian exposes the CM6 EditorView via .cm
+
         if ('cm' in editor) {
           (editor.cm as EditorView).dispatch({
             effects: themeChangeEffect.of(null),
           });
         }
 
-        // Refresh Reading View (Preview)
         if (view.getMode() === 'preview') {
           view.previewMode.rerender(true);
         }
@@ -107,7 +103,7 @@ export default class ShikiHighlightPlugin extends Plugin {
     });
   }
 
-  updateThemeStyles() {
+  private updateThemeStyles() {
     if (!this.highlighter) return;
     const colors = this.highlighter.getThemeColors();
     if (!colors) return;
@@ -133,7 +129,7 @@ export default class ShikiHighlightPlugin extends Plugin {
 }
 
 class ShikiHighlightSettingTab extends PluginSettingTab {
-  plugin: ShikiHighlightPlugin;
+  private plugin: ShikiHighlightPlugin;
 
   constructor(app: App, plugin: ShikiHighlightPlugin) {
     super(app, plugin);
@@ -147,10 +143,9 @@ class ShikiHighlightSettingTab extends PluginSettingTab {
     containerEl.createEl('h2', { text: 'Shiki Highlighter Settings' });
 
     const themes = bundledThemesInfo;
-    // Create a record for the dropdown
     const themeOptions: Record<string, string> = {};
-    themes.forEach((t) => {
-      themeOptions[t.id] = `${t.displayName} (${t.type})`;
+    themes.forEach((theme) => {
+      themeOptions[theme.id] = `${theme.displayName} (${theme.type})`;
     });
 
     new Setting(containerEl)

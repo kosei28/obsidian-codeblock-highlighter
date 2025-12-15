@@ -21,7 +21,7 @@ export class ShikiHighlighter {
   async initialize() {
     this.highlighter = await createHighlighter({
       themes: [this.currentTheme as ThemeInput],
-      langs: [], // Start with no languages loaded
+      langs: [],
     });
   }
 
@@ -34,10 +34,9 @@ export class ShikiHighlighter {
     this.currentTheme = theme;
   }
 
-  async loadLanguage(lang: string) {
+  private async loadLanguage(lang: string) {
     if (!this.highlighter || this.loadingLanguages.has(lang)) return;
 
-    // Check if the language is valid
     const langInfo = bundledLanguagesInfo.find((l) => l.id === lang || l.aliases?.includes(lang));
     if (!langInfo) return;
 
@@ -58,8 +57,6 @@ export class ShikiHighlighter {
 
     const loadedLanguages = this.highlighter.getLoadedLanguages();
     if (!loadedLanguages.includes(lang) && !this.loadingLanguages.has(lang)) {
-      // Trigger load if not loaded and not currently loading
-      // We do this floating (no await)
       this.loadLanguage(lang);
       return [];
     }
@@ -85,10 +82,7 @@ export class ShikiHighlighter {
 
     const loadedLanguages = this.highlighter.getLoadedLanguages();
     if (!loadedLanguages.includes(lang)) {
-      // checks implicitly if valid in loadLanguage
       this.loadLanguage(lang);
-      // For HTML output (used in Reading View), we might want to return plain code
-      // and rely on a re-render trigger later, or we just return unhighlighted
       return code;
     }
 
