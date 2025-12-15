@@ -1,5 +1,6 @@
 import type { EditorView } from '@codemirror/view';
 import { type App, MarkdownView, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { bundledThemesInfo } from 'shiki';
 import { ShikiHighlighter } from './shiki_highlighter';
 import { createShikiViewPlugin, themeChangeEffect } from './view_plugin';
 
@@ -21,7 +22,7 @@ export default class ShikiHighlightPlugin extends Plugin {
     console.log('Loading Shiki Highlighter Plugin');
     await this.loadSettings();
 
-    this.highlighter = new ShikiHighlighter();
+    this.highlighter = new ShikiHighlighter(this.settings.theme);
 
     this.styleEl = document.createElement('style');
     this.styleEl.id = 'shiki-highlight-styles';
@@ -29,7 +30,7 @@ export default class ShikiHighlightPlugin extends Plugin {
 
     // Notify user if initialization takes time
     try {
-      await this.highlighter.initialize(this.settings.theme);
+      await this.highlighter.initialize();
       console.log('Shiki initialized with theme:', this.settings.theme);
       this.updateThemeStyles();
     } catch (e) {
@@ -50,8 +51,6 @@ export default class ShikiHighlightPlugin extends Plugin {
 
         const code = codeElement.textContent || '';
 
-        // Load language and highlight
-        await this.highlighter.loadLanguage(lang);
         const html = this.highlighter.highlightHtml(code, lang);
 
         const div = document.createElement('div');
@@ -143,11 +142,11 @@ class ShikiHighlightSettingTab extends PluginSettingTab {
 
     containerEl.createEl('h2', { text: 'Shiki Highlighter Settings' });
 
-    const themes = this.plugin.highlighter ? this.plugin.highlighter.getThemeList() : [];
+    const themes = bundledThemesInfo;
     // Create a record for the dropdown
     const themeOptions: Record<string, string> = {};
     themes.forEach((t) => {
-      themeOptions[t] = t;
+      themeOptions[t.id] = `${t.displayName} (${t.type})`;
     });
 
     new Setting(containerEl)

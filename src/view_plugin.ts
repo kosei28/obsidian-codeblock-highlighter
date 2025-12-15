@@ -1,7 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { type Range, StateEffect } from '@codemirror/state';
 import { Decoration, type DecorationSet, type EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
-import type { TokensResult } from 'shiki';
 import type ShikiHighlightPlugin from './main';
 
 // Helper to check for bold/italic from Shiki fontstyle
@@ -142,8 +141,7 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) =>
         const doc = view.state.doc;
         const code = doc.sliceString(from, to);
 
-        const result = plugin.highlighter.highlight(code, lang);
-        const lines = (result as TokensResult).tokens || result;
+        const lines = plugin.highlighter.highlight(code, lang);
 
         let currentPos = from;
 

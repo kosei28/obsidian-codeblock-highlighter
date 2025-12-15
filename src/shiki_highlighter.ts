@@ -1,15 +1,23 @@
-import { type BundledLanguage, createHighlighter, type Highlighter, type ThemeInput } from 'shiki';
-import { themes } from 'tm-themes';
+import {
+  type BundledLanguage,
+  bundledLanguagesInfo,
+  createHighlighter,
+  type Highlighter,
+  type ThemeInput,
+} from 'shiki';
 
 export class ShikiHighlighter {
   private highlighter: Highlighter | null = null;
-  private currentTheme: string = 'github-dark';
+  private currentTheme: string;
 
-  async initialize(theme: string) {
+  constructor(theme: string) {
     this.currentTheme = theme;
+  }
+
+  async initialize() {
     this.highlighter = await createHighlighter({
-      themes: [theme as ThemeInput],
-      langs: ['javascript', 'typescript', 'css', 'html', 'json', 'markdown'],
+      themes: [this.currentTheme as ThemeInput],
+      langs: bundledLanguagesInfo.map((l) => l.id),
     });
   }
 
@@ -22,25 +30,22 @@ export class ShikiHighlighter {
     this.currentTheme = theme;
   }
 
-  getThemeList(): string[] {
-    return themes.map((t) => t.name);
-  }
-
   highlight(code: string, lang: string) {
     if (!this.highlighter) return [];
 
     try {
-      return this.highlighter.codeToTokens(code, {
+      const result = this.highlighter.codeToTokens(code, {
         lang: lang as BundledLanguage,
         theme: this.currentTheme,
       });
+      return result.tokens;
     } catch (e) {
       console.warn(`[Shiki] Failed to highlight ${lang}:`, e);
       return [];
     }
   }
 
-  highlightHtml(code: string, lang: string): string {
+  highlightHtml(code: string, lang: string) {
     if (!this.highlighter) return code;
 
     try {
@@ -54,15 +59,8 @@ export class ShikiHighlighter {
     }
   }
 
-  async loadLanguage(lang: string) {
-    if (!this.highlighter) return;
-    if (!this.highlighter.getLoadedLanguages().includes(lang)) {
-      await this.highlighter.loadLanguage(lang as BundledLanguage);
-    }
-  }
-
   getThemeColors(): { fg: string; bg: string } | undefined {
-    if (!this.highlighter) return undefined;
+    if (!this.highlighter) return;
     const theme = this.highlighter.getTheme(this.currentTheme);
     return { fg: theme.fg, bg: theme.bg };
   }
