@@ -81,7 +81,11 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) =>
                 uniqueBlocks.add(startLine.from.toString());
 
                 const match = startLine.text.match(/^`{3,}(\S*)/);
-                const lang = match ? match[1] : '';
+                let lang = match ? match[1] : '';
+
+                if (plugin.settings.languageMappings[lang]) {
+                  lang = plugin.settings.languageMappings[lang];
+                }
 
                 const blockContentStart = startLine.to + 1;
                 if (blockContentStart >= doc.length) return;

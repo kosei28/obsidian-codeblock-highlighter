@@ -4,12 +4,14 @@ import { bundledThemesInfo } from 'shiki';
 import { ShikiHighlighter } from './shiki_highlighter';
 import { createShikiViewPlugin, themeChangeEffect } from './view_plugin';
 
-type ShikiHighlightSettings = {
+export type ShikiHighlightSettings = {
   theme: string;
+  languageMappings: Record<string, string>;
 };
 
 const DEFAULT_SETTINGS: ShikiHighlightSettings = {
   theme: 'catppuccin-mocha',
+  languageMappings: {},
 };
 
 export default class ShikiHighlightPlugin extends Plugin {
@@ -44,7 +46,11 @@ export default class ShikiHighlightPlugin extends Plugin {
 
         const classes = Array.from(codeElement.classList);
         const langClass = classes.find((className) => className.startsWith('language-'));
-        const lang = langClass ? langClass.replace('language-', '') : 'text';
+        let lang = langClass ? langClass.replace('language-', '') : 'text';
+
+        if (this.settings.languageMappings[lang]) {
+          lang = this.settings.languageMappings[lang];
+        }
 
         const code = codeElement.textContent || '';
 
@@ -156,5 +162,65 @@ class ShikiHighlightSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl)
+      .setName('Language Mappings')
+      .setDesc('Map shorter or alternative language names to Shiki languages (e.g., "dataviewjs" -> "javascript").');
+
+    const mappingsContainer = containerEl.createDiv();
+
+    const renderMappings = () => {
+      mappingsContainer.empty();
+
+      let newAlias = '';
+      let newTarget = '';
+
+      const addMappingSetting = new Setting(mappingsContainer).addText((text) =>
+        text.setPlaceholder('Alias (e.g. dataviewjs)').onChange((value) => {
+          newAlias = value;
+        })
+      );
+      addMappingSetting.controlEl.createSpan({ text: ' → ', cls: 'codeblock-highlighter-mapping-arrow' });
+      addMappingSetting
+        .addText((text) =>
+          text.setPlaceholder('Target (e.g. javascript)').onChange((value) => {
+            newTarget = value;
+          })
+        )
+        .addButton((btn) => {
+          btn
+            .setButtonText('Add')
+            .setClass('codeblock-highlighter-mapping-button')
+            .setCta()
+            .onClick(async () => {
+              if (newAlias && newTarget) {
+                this.plugin.settings.languageMappings[newAlias] = newTarget;
+                await this.plugin.saveSettings();
+                renderMappings();
+              }
+            });
+        });
+
+      Object.entries(this.plugin.settings.languageMappings).forEach(([alias, target]) => {
+        const setting = new Setting(mappingsContainer)
+          .setClass('codeblock-highlighter-mapping-item')
+          .addText((text) => text.setValue(alias).setDisabled(true));
+        setting.controlEl.createSpan({ text: ' → ', cls: 'codeblock-highlighter-mapping-arrow' });
+        setting
+          .addText((text) => text.setValue(target).setDisabled(true))
+          .addButton((btn) => {
+            btn
+              .setButtonText('Delete')
+              .setClass('codeblock-highlighter-mapping-button')
+              .onClick(async () => {
+                delete this.plugin.settings.languageMappings[alias];
+                await this.plugin.saveSettings();
+                renderMappings();
+              });
+          });
+      });
+    };
+
+    renderMappings();
   }
 }
