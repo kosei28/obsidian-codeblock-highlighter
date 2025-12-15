@@ -31,6 +31,31 @@ export default class ShikiHighlightPlugin extends Plugin {
         }
 
         this.registerEditorExtension(createShikiViewPlugin(this));
+
+        this.registerMarkdownPostProcessor((el, ctx) => {
+            el.querySelectorAll('pre > code').forEach(async (codeElement) => {
+                const pre = codeElement.parentElement as HTMLElement;
+                if (!pre || pre.classList.contains('shiki')) return;
+
+                const classes = Array.from(codeElement.classList);
+                const langClass = classes.find(c => c.startsWith('language-'));
+                const lang = langClass ? langClass.replace('language-', '') : 'text';
+                
+                const code = codeElement.textContent || '';
+                
+                // Load language and highlight
+                await this.highlighter.loadLanguage(lang);
+                const html = this.highlighter.highlightHtml(code, lang);
+                
+                const div = document.createElement('div');
+                div.innerHTML = html;
+                const newPre = div.querySelector('pre');
+                
+                if (newPre) {
+                    pre.replaceWith(newPre);
+                }
+            });
+        });
         this.addSettingTab(new ShikiHighlightSettingTab(this.app, this));
     }
 
@@ -48,12 +73,19 @@ export default class ShikiHighlightPlugin extends Plugin {
         // Trigger refresh in all editor views
         this.app.workspace.iterateAllLeaves(leaf => {
             if (leaf.view instanceof MarkdownView) {
-                const editor = leaf.view.editor as any;
+                const view = leaf.view;
+                const editor = view.editor as any;
                 // Obsidian exposes the CM6 EditorView via .cm
                 if (editor.cm) {
                     (editor.cm as EditorView).dispatch({
                         effects: themeChangeEffect.of(null)
                     });
+                }
+                
+                // Refresh Reading View (Preview)
+                if (view.getMode() === 'preview') {
+                    // @ts-ignore
+                    view.previewMode.rerender(true);
                 }
             }
         });

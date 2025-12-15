@@ -39,6 +39,20 @@ export class ShikiHighlighter {
             return []; 
         }
     }
+
+    highlightHtml(code: string, lang: string): string {
+        if (!this.highlighter) return code;
+        
+        try {
+            return this.highlighter.codeToHtml(code, {
+                lang: lang as any,
+                theme: this.currentTheme
+            });
+        } catch (e) {
+            console.warn(`[Shiki] Failed to highlight HTML ${lang}:`, e);
+            return code;
+        }
+    }
     
     async loadLanguage(lang: string) {
         if (!this.highlighter) return;
