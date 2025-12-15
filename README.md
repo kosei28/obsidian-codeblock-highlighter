@@ -25,3 +25,8 @@ To build the plugin from source:
 bun install
 bun run dev
 ```
+
+## Credits
+
+- [Shiki](https://shiki.style/): A beautiful and powerful syntax highlighter.
+- [tm-themes](https://github.com/shikijs/textmate-grammars-themes/tree/main/packages/tm-themes): A collection of shared TextMate themes bundled in this plugin.
