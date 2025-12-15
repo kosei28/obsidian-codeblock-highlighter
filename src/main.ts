@@ -22,7 +22,7 @@ export default class ShikiHighlightPlugin extends Plugin {
     console.log('Loading Shiki Highlighter Plugin');
     await this.loadSettings();
 
-    this.highlighter = new ShikiHighlighter(this.settings.theme);
+    this.highlighter = new ShikiHighlighter(this.settings.theme, this);
 
     this.styleEl = document.createElement('style');
     this.styleEl.id = 'shiki-highlight-styles';
@@ -83,6 +83,10 @@ export default class ShikiHighlightPlugin extends Plugin {
       this.updateThemeStyles();
     }
 
+    this.refreshViews();
+  }
+
+  refreshViews() {
     // Trigger refresh in all editor views
     this.app.workspace.iterateAllLeaves((leaf) => {
       if (leaf.view instanceof MarkdownView) {
