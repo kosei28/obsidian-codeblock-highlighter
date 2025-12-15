@@ -1,5 +1,5 @@
 import { ViewPlugin, DecorationSet, Decoration, ViewUpdate, EditorView, WidgetType } from '@codemirror/view';
-import { RangeSetBuilder } from '@codemirror/state';
+import { RangeSetBuilder, StateEffect } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 import ShikiHighlightPlugin from './main';
 
@@ -11,6 +11,8 @@ const FONT_STYLE = {
     UNDERLINE: 4
 };
 
+export const themeChangeEffect = StateEffect.define<null>();
+
 export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) => ViewPlugin.fromClass(class {
     decorations: DecorationSet;
 
@@ -20,7 +22,7 @@ export const createShikiViewPlugin = (plugin: ShikiHighlightPlugin) => ViewPlugi
     }
 
     update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.focusChanged) {
+        if (update.docChanged || update.viewportChanged || update.focusChanged || update.transactions.some(tr => tr.effects.some(e => e.is(themeChangeEffect)))) {
             this.updateDecorations(update.view);
         }
     }

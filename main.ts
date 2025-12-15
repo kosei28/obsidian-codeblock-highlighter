@@ -1,6 +1,7 @@
-import { App, Plugin, PluginSettingTab, Setting, Notice } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, Notice, MarkdownView } from 'obsidian';
+import { EditorView } from '@codemirror/view';
 import { ShikiHighlighter } from './shiki_highlighter';
-import { createShikiViewPlugin } from './view_plugin';
+import { createShikiViewPlugin, themeChangeEffect } from './view_plugin';
 
 interface ShikiHighlightSettings {
     theme: string;
@@ -43,6 +44,19 @@ export default class ShikiHighlightPlugin extends Plugin {
         if (this.highlighter) {
             await this.highlighter.loadTheme(this.settings.theme);
         }
+
+        // Trigger refresh in all editor views
+        this.app.workspace.iterateAllLeaves(leaf => {
+            if (leaf.view instanceof MarkdownView) {
+                const editor = leaf.view.editor as any;
+                // Obsidian exposes the CM6 EditorView via .cm
+                if (editor.cm) {
+                    (editor.cm as EditorView).dispatch({
+                        effects: themeChangeEffect.of(null)
+                    });
+                }
+            }
+        });
     }
 }
 
