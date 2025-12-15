@@ -60,4 +60,10 @@ export class ShikiHighlighter {
       await this.highlighter.loadLanguage(lang as BundledLanguage);
     }
   }
+
+  getThemeColors(): { fg: string; bg: string } | undefined {
+    if (!this.highlighter) return undefined;
+    const theme = this.highlighter.getTheme(this.currentTheme);
+    return { fg: theme.fg, bg: theme.bg };
+  }
 }

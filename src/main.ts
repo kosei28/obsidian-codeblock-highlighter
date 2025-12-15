@@ -15,16 +15,23 @@ export default class ShikiHighlightPlugin extends Plugin {
   settings: ShikiHighlightSettings;
   highlighter: ShikiHighlighter;
 
+  styleEl: HTMLStyleElement;
+
   async onload() {
     console.log('Loading Shiki Highlighter Plugin');
     await this.loadSettings();
 
     this.highlighter = new ShikiHighlighter();
 
+    this.styleEl = document.createElement('style');
+    this.styleEl.id = 'shiki-highlight-styles';
+    document.head.appendChild(this.styleEl);
+
     // Notify user if initialization takes time
     try {
       await this.highlighter.initialize(this.settings.theme);
       console.log('Shiki initialized with theme:', this.settings.theme);
+      this.updateThemeStyles();
     } catch (e) {
       console.error('Failed to initialize Shiki:', e);
       new Notice('Shiki Highlighter: Failed to initialize. Check console.');
@@ -59,6 +66,12 @@ export default class ShikiHighlightPlugin extends Plugin {
     this.addSettingTab(new ShikiHighlightSettingTab(this.app, this));
   }
 
+  onunload() {
+    if (this.styleEl) {
+      this.styleEl.remove();
+    }
+  }
+
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
@@ -68,6 +81,7 @@ export default class ShikiHighlightPlugin extends Plugin {
     // Reload highlighter theme when settings are saved
     if (this.highlighter) {
       await this.highlighter.loadTheme(this.settings.theme);
+      this.updateThemeStyles();
     }
 
     // Trigger refresh in all editor views
@@ -88,6 +102,30 @@ export default class ShikiHighlightPlugin extends Plugin {
         }
       }
     });
+  }
+
+  updateThemeStyles() {
+    if (!this.highlighter) return;
+    const colors = this.highlighter.getThemeColors();
+    if (!colors) return;
+
+    this.styleEl.textContent = `
+      body {
+        --shiki-fg: color-mix(in srgb, ${colors.fg}, transparent 30%);
+        --shiki-bg: ${colors.bg};
+      }
+      
+      /* Source Mode / Live Preview */
+      .markdown-source-view.mod-cm6 .cm-content > .HyperMD-codeblock {
+        color: var(--shiki-fg) !important;
+        caret-color: var(--shiki-fg) !important;
+        background-color: var(--shiki-bg) !important;
+
+        .code-block-flair {
+          color: var(--shiki-fg) !important;
+        }
+      }
+    `;
   }
 }
 
