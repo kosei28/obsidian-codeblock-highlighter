@@ -10,8 +10,18 @@ A simple plugin that highlights code blocks in Obsidian using the powerful [Shik
 
 ## Installation
 
+**Note: This plugin is not yet available in the official Community Plugins list.**
+
 1. Search for "Codeblock Highlighter" in Obsidian's Community Plugins (once released).
 2. Enable the plugin in your settings.
+
+### BRAT
+
+1. Install the **BRAT** plugin from the Community Plugins.
+2. Open the command palette and run `BRAT: Add a beta plugin for testing`.
+3. Enter the URL: `https://github.com/kosei28/obsidian-codeblock-highlighter`
+4. Click "Add Plugin".
+5. Enable "Codeblock Highlighter" in the Community Plugins list.
 
 ## Settings
 
