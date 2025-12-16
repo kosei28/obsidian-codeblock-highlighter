@@ -6,7 +6,7 @@ A simple plugin that highlights code blocks in Obsidian using the powerful [Shik
 
 - **Accurate Highlighting**: Uses Shiki for VS Code-like syntax highlighting.
 - **Theme Support**: Choose from a variety of bundled themes in the settings.
-- **Live Preview & Reading Mode**: Works seamlessly in both editor modes.
+- **Source Mode / Live Preview / Reading View**: Works seamlessly in all view modes.
 
 ## Installation
 
