@@ -1,3 +1,19 @@
+/* Source Mode / Live Preview */
+.markdown-source-view.mod-cm6 .cm-content > .HyperMD-codeblock {
+  color: var(--codeblock-highlighter-fg) !important;
+  caret-color: var(--codeblock-highlighter-fg) !important;
+  background-color: var(--codeblock-highlighter-bg) !important;
+
+  .code-block-flair {
+    color: var(--codeblock-highlighter-fg) !important;
+  }
+}
+
+/* Reading View */
+pre button.copy-code-button {
+  color: var(--codeblock-highlighter-fg) !important;
+}
+
 /* Settings Tab Styles */
 
 .codeblock-highlighter-mapping-item {
@@ -5,15 +21,6 @@
   padding-top: 0;
 }
 
-.codeblock-highlighter-mapping-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  color: var(--text-muted);
-}
-
 .codeblock-highlighter-mapping-button {
-  width: 80px;
-  margin-left: 10px;
+  width: 60px;
 }

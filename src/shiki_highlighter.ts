@@ -57,7 +57,7 @@ export class ShikiHighlighter {
 
     const loadedLanguages = this.highlighter.getLoadedLanguages();
     if (!loadedLanguages.includes(lang) && !this.loadingLanguages.has(lang)) {
-      this.loadLanguage(lang);
+      void this.loadLanguage(lang);
       return [];
     }
 
@@ -82,7 +82,7 @@ export class ShikiHighlighter {
 
     const loadedLanguages = this.highlighter.getLoadedLanguages();
     if (!loadedLanguages.includes(lang)) {
-      this.loadLanguage(lang);
+      void this.loadLanguage(lang);
       return code;
     }
 

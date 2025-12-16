@@ -25,6 +25,9 @@ export default class ShikiHighlightPlugin extends Plugin {
 
     this.highlighter = new ShikiHighlighter(this.settings.theme, this);
 
+    // Necessary for setting theme colors dynamically.
+    // Used only to set css variables, not to apply styles directly.
+    // eslint-disable-next-line obsidianmd/no-forbidden-elements
     this.styleEl = document.createElement('style');
     this.styleEl.id = 'shiki-highlight-styles';
     document.head.appendChild(this.styleEl);
@@ -33,14 +36,14 @@ export default class ShikiHighlightPlugin extends Plugin {
       await this.highlighter.initialize();
       this.updateThemeStyles();
     } catch (e) {
-      console.error('Failed to initialize Shiki:', e);
-      new Notice('Shiki Highlighter: Failed to initialize. Check console.');
+      console.error('Failed to initialize `Codeblock Highlighter`:', e);
+      new Notice('Failed to initialize `Codeblock Highlighter`.');
     }
 
     this.registerEditorExtension(createShikiViewPlugin(this));
 
     this.registerMarkdownPostProcessor((el) => {
-      el.querySelectorAll('pre > code').forEach(async (codeElement) => {
+      el.querySelectorAll('pre > code').forEach((codeElement) => {
         const pre = codeElement.parentElement as HTMLElement;
         if (!pre || pre.classList.contains('shiki')) return;
 
@@ -56,9 +59,9 @@ export default class ShikiHighlightPlugin extends Plugin {
 
         const html = this.highlighter.highlightHtml(code, lang);
 
-        const div = document.createElement('div');
-        div.innerHTML = html;
-        const newPre = div.querySelector('pre');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newPre = doc.querySelector('pre');
 
         if (newPre) {
           for (const cls of Array.from(newPre.classList)) {
@@ -84,7 +87,7 @@ export default class ShikiHighlightPlugin extends Plugin {
   }
 
   private async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as ShikiHighlightSettings;
   }
 
   async saveSettings() {
@@ -123,24 +126,8 @@ export default class ShikiHighlightPlugin extends Plugin {
 
     this.styleEl.textContent = `
       body {
-        --shiki-fg: color-mix(in srgb, ${colors.fg}, transparent 30%);
-        --shiki-bg: ${colors.bg};
-      }
-      
-      /* Source Mode / Live Preview */
-      .markdown-source-view.mod-cm6 .cm-content > .HyperMD-codeblock {
-        color: var(--shiki-fg) !important;
-        caret-color: var(--shiki-fg) !important;
-        background-color: var(--shiki-bg) !important;
-
-        .code-block-flair {
-          color: var(--shiki-fg) !important;
-        }
-      }
-
-      /* Reading View */
-      pre button.copy-code-button {
-        color: var(--shiki-fg) !important;
+        --codeblock-highlighter-fg: color-mix(in srgb, ${colors.fg}, transparent 30%);
+        --codeblock-highlighter-bg: ${colors.bg};
       }
     `;
   }
@@ -178,8 +165,8 @@ class ShikiHighlightSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Language Mappings')
-      .setDesc('Map shorter or alternative language names to Shiki languages (e.g., "dataviewjs" -> "javascript").');
+      .setName('Language mappings')
+      .setDesc('Map alternative language names to Shiki languages (e.g., `dataviewjs` -> `js`).');
 
     const mappingsContainer = containerEl.createDiv();
 
@@ -190,14 +177,14 @@ class ShikiHighlightSettingTab extends PluginSettingTab {
       let newTarget = '';
 
       const addMappingSetting = new Setting(mappingsContainer).addText((text) =>
-        text.setPlaceholder('Alias (e.g. dataviewjs)').onChange((value) => {
+        text.onChange((value) => {
           newAlias = value;
         })
       );
-      addMappingSetting.controlEl.createSpan({ text: ' → ', cls: 'codeblock-highlighter-mapping-arrow' });
+      addMappingSetting.controlEl.createSpan({ text: ' → ' });
       addMappingSetting
         .addText((text) =>
-          text.setPlaceholder('Target (e.g. javascript)').onChange((value) => {
+          text.onChange((value) => {
             newTarget = value;
           })
         )
@@ -219,7 +206,7 @@ class ShikiHighlightSettingTab extends PluginSettingTab {
         const setting = new Setting(mappingsContainer)
           .setClass('codeblock-highlighter-mapping-item')
           .addText((text) => text.setValue(alias).setDisabled(true));
-        setting.controlEl.createSpan({ text: ' → ', cls: 'codeblock-highlighter-mapping-arrow' });
+        setting.controlEl.createSpan({ text: ' → ' });
         setting
           .addText((text) => text.setValue(target).setDisabled(true))
           .addButton((btn) => {
